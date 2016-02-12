@@ -10762,7 +10762,7 @@ void main(void)
 	{
 	   edgeColor = _OutlineColor; 
 	}
-	gl_FragColor = edgeColor*vec4(material_ambient +  material_diffuse * diffuse + material_specular * specular, 1.0);
+	gl_FragColor = f*edgeColor*vec4(material_ambient +  material_diffuse * diffuse + material_specular * specular, 1.0);
 	//gl_FragColor = edgeColor*vec4(material_ambient  + material_specular * specular, 1.0);
 }
 </script> 
@@ -10917,7 +10917,7 @@ function webGLStart()
    var x0 = y0 = move  = 0;
    //  Rotation angles
    var th = ph = 0;
-   //initTextures();
+   initTextures();
    //  Draw scene the first time
    //Display();
    var timeT=0;
@@ -10991,8 +10991,8 @@ function webGLStart()
 
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
 	
-	//gl.activeTexture(gl.TEXTURE0);
-	//gl.bindTexture(gl.TEXTURE_2D, cubeTexture);
+	gl.activeTexture(gl.TEXTURE0);
+	gl.bindTexture(gl.TEXTURE_2D, cubeTexture);
 	gl.drawElements(gl.TRIANGLES, mesh.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 
 	//  Flush
