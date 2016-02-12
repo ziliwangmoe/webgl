@@ -10715,6 +10715,8 @@ uniform vec3 material_ambient;
 uniform vec3 material_diffuse;
 uniform vec3 material_specular;
 uniform float material_specular_power;
+uniform int isToon;
+uniform int isOutline;
 
 uniform mat4 model_matrix;
 uniform mat4 view_matrix;
@@ -10725,8 +10727,6 @@ varying vec3 eye_coord;
 varying vec3 normal;
 void main(void)
 {
-	float _UnlitOutlineThickness =0.2;
-	float _LitOutlineThickness =0.1;
 	vec4 _OutlineColor =vec4(0.4,0.1,0.0,1);
 	vec4 edgeColor =vec4(1,1,1,1);
 	vec3 N = normal;
@@ -10743,26 +10743,33 @@ void main(void)
 	}
 	
 	vec4 f = texture2D(texture, coord);
-	      
-	if (diffuse >= 0.1)
-	{
-	   diffuse =  0.6; 
-	}else{
-		diffuse= 0.2;
+	
+    if(isToon ==1){
+		if (diffuse >= 0.1)
+		{
+		   diffuse =  0.4; 
+		}else{
+			diffuse= 0.1;
+		}
+		
+		if (specular >= 0.1)
+		{
+		   specular =  2.0; 
+		}else{
+			specular= 1.0;
+		}
+	}	
+	
+	if(isOutline ==1){
+		if (dot(-E, N) < mix(0.1, 0.2, max(0.0, dot(N, L))))
+		{
+		   edgeColor = _OutlineColor; 
+		}
 	}
 	
-	if (specular >= 0.1)
-	{
-	   specular =  2.0; 
-	}else{
-		specular= 1.0;
-	}
 	
-	if (dot(-E, N) < mix(_UnlitOutlineThickness, _LitOutlineThickness, max(0.0, dot(N, L))))
-	{
-	   edgeColor = _OutlineColor; 
-	}
-	gl_FragColor = f*edgeColor*vec4(material_ambient +  material_diffuse * diffuse + material_specular * specular, 1.0);
+	
+	gl_FragColor = edgeColor*vec4(material_ambient +  material_diffuse * diffuse + material_specular * specular, 1.0);
 	//gl_FragColor = edgeColor*vec4(material_ambient  + material_specular * specular, 1.0);
 }
 </script> 
@@ -10850,7 +10857,7 @@ function Tan(val){
 	return Math.tan(3.1415926/180*val);
 }
 
-var gl,canvas, mesh, prog;
+var gl,canvas, mesh, prog, isOutline, isToon;
 function webGLStart()
 {
    //  Set canvas
@@ -10930,7 +10937,7 @@ function webGLStart()
    function Display()
    {
 	timeT = timeT+1000/30;
-	zh = (timeT/20) %360;
+	zh = (timeT/40) %360;
 	//  Clear the screen and Z buffer
 	gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
 
@@ -10973,6 +10980,8 @@ function webGLStart()
 	gl.uniform3fv(gl.getUniformLocation(prog, "material_diffuse"), diffuseColor);
 	gl.uniform3fv(gl.getUniformLocation(prog, "material_specular"), specularColor);
 	gl.uniform1f(gl.getUniformLocation(prog, "material_specular_power"), specularFactor);
+	gl.uniform1i(gl.getUniformLocation(prog, "isToon"), isToon);
+	gl.uniform1i(gl.getUniformLocation(prog, "isOutline"), isOutline);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vertexBuffer);
 	gl.vertexAttribPointer(prog.vertexPositionAttribute, mesh.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
@@ -11049,6 +11058,20 @@ function webGLStart()
    }
   
 }
+
+function callBack_check(){
+	if(document.getElementById("outlines").checked == true){
+		isOutline = 1;
+	}else{
+		isOutline = 0;
+	}
+	
+	if(document.getElementById("toon").checked == true){
+		isToon = 1;
+	}else{
+		isToon = 0;
+	}
+}
 </script> 
 
 <!--
@@ -11057,6 +11080,9 @@ function webGLStart()
 </head>
 <body onload="webGLStart();" onresize="canvas.resize();"> 
 <H1>Example 8: WebGL</H1>
+<input type="checkbox" id="outlines" onclick="callBack_check()">Outlines?</br>
+<input type="checkbox" id="toon" onclick="callBack_check()">Toon Shading?</br>
 <canvas id="canvas" width="500" height="500"></canvas> 
+
 </body>
 </html>
