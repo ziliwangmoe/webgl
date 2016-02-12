@@ -10681,6 +10681,7 @@ f 2005/2062/2050 2113/503/541 2006/502/540
    uniform mat4 model_matrix;
 	uniform mat4 view_matrix;
 	uniform mat4 projection_matrix;
+	uniform mat4 normal_matrix;
 	attribute vec4 aVertexPosition;
 	attribute vec3 aVertexNormal;
 	attribute vec2 aTextureCoord;
@@ -10697,7 +10698,7 @@ f 2005/2062/2050 2113/503/541 2006/502/540
 		vec4 clip_pos = projection_matrix * eye_pos;
 		world_coord = world_pos.xyz;
 		eye_coord = eye_pos.xyz;
-		normal = mat3(view_matrix * model_matrix) * aVertexNormal;
+		normal = mat3(normal_matrix) * aVertexNormal;
 		coord= aTextureCoord;
 		gl_Position = clip_pos;
 	}
@@ -10715,22 +10716,54 @@ uniform vec3 material_diffuse;
 uniform vec3 material_specular;
 uniform float material_specular_power;
 
+uniform mat4 model_matrix;
+uniform mat4 view_matrix;
+
 varying vec2 coord;
 varying vec3 world_coord;
 varying vec3 eye_coord;
 varying vec3 normal;
 void main(void)
 {
+	float _UnlitOutlineThickness =0.2;
+	float _LitOutlineThickness =0.1;
+	vec4 _OutlineColor =vec4(0.4,0.1,0.0,1);
+	vec4 edgeColor =vec4(1,1,1,1);
 	vec3 N = normal;
-	vec3 L = normalize(light_position.xyz - eye_coord);
+	vec4 light_position_d = view_matrix* model_matrix*light_position;
+	vec3 L = normalize(light_position_d.xyz - eye_coord);
 	vec3 R = reflect(-L, N);
 	vec3 E = normalize(eye_coord);
 	float NdotL = dot(N, L);
 	float EdotR = dot(-E, R);
 	float diffuse = max(NdotL, 0.0);
-	float specular = max(pow(EdotR, material_specular_power),0.0);
+	float specular = 0.0;
+	if(NdotL>0.0){
+		specular = max(pow(EdotR, material_specular_power),0.0);
+	}
+	
 	vec4 f = texture2D(texture, coord);
-	gl_FragColor = f*vec4(material_ambient +  material_diffuse * diffuse + material_specular * specular, 1.0);
+	      
+	if (diffuse >= 0.1)
+	{
+	   diffuse =  0.4; 
+	}else{
+		diffuse= 0.2;
+	}
+	
+	if (specular >= 0.1)
+	{
+	   specular =  2.0; 
+	}else{
+		specular= 1.0;
+	}
+	
+	if (dot(-E, N) < mix(_UnlitOutlineThickness, _LitOutlineThickness, max(0.0, dot(N, L))))
+	{
+	   edgeColor = _OutlineColor; 
+	}
+	gl_FragColor = edgeColor*vec4(material_ambient +  material_diffuse * diffuse + material_specular * specular, 1.0);
+	//gl_FragColor = edgeColor*vec4(material_ambient  + material_specular * specular, 1.0);
 }
 </script> 
 
@@ -10884,15 +10917,20 @@ function webGLStart()
    var x0 = y0 = move  = 0;
    //  Rotation angles
    var th = ph = 0;
-   initTextures();
+   //initTextures();
    //  Draw scene the first time
-   Display();
+   //Display();
+   var timeT=0;
+   window.setTimeout(Display, 1000/60);
+   
 
    //
    //  Display the scene
    //
    function Display()
    {
+	timeT = timeT+1000/30;
+	zh = (timeT/10) %360;
 	//  Clear the screen and Z buffer
 	gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
 
@@ -10906,22 +10944,29 @@ function webGLStart()
 	var ViewMatrix = new CanvasMatrix4();
 	ViewMatrix.makeIdentity();
 	ViewMatrix.translate(0,0,-3);
+	
+	var NormalMatrix = new CanvasMatrix4();
+	NormalMatrix.load(ViewMatrix);
+	NormalMatrix.multRight(ModelMatrix);
+	NormalMatrix.invert();
+	NormalMatrix.transpose();
 	  
 	// Set shader
 	gl.useProgram(prog);
 
 	var ambientColor = [0.3, 0.3, 0.3];
 	var diffuseColor = [0.64, 0.64, 0.64];
-	var specularColor = [0, 0, 0];
+	var specularColor = [0.3, 0.3, 0.3];
 	var specularFactor = 8;
 	var zh = 45;
-	var lightPosition = [3 * Cos(zh), 2.0, 3 * Sin(zh), 1];
+	var lightPosition = [ 3 * Cos(zh), 2.0, 3 * Sin(zh), 1];
 	
 
 	//  Set projection and modelview matrixes
 	gl.uniformMatrix4fv(gl.getUniformLocation(prog,"projection_matrix") , false , new Float32Array(ProjectionMatrix.getAsArray()));
 	gl.uniformMatrix4fv(gl.getUniformLocation(prog,"view_matrix")  , false , new Float32Array(ViewMatrix.getAsArray()));
 	gl.uniformMatrix4fv(gl.getUniformLocation(prog,"model_matrix")  , false , new Float32Array(ModelMatrix.getAsArray()));
+	gl.uniformMatrix4fv(gl.getUniformLocation(prog,"normal_matrix")  , false , new Float32Array(NormalMatrix.getAsArray()));
 	gl.uniform1i(gl.getUniformLocation(prog, "texture"), 0);
 	gl.uniform4fv(gl.getUniformLocation(prog, "light_position"), lightPosition);
 	gl.uniform3fv(gl.getUniformLocation(prog, "material_ambient"), ambientColor);
@@ -10946,12 +10991,13 @@ function webGLStart()
 
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
 	
-	gl.activeTexture(gl.TEXTURE0);
-	gl.bindTexture(gl.TEXTURE_2D, cubeTexture);
+	//gl.activeTexture(gl.TEXTURE0);
+	//gl.bindTexture(gl.TEXTURE_2D, cubeTexture);
 	gl.drawElements(gl.TRIANGLES, mesh.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 
 	//  Flush
 	gl.flush ();
+	window.setTimeout(Display, 1000/30);
    }
 
    //
@@ -10963,7 +11009,7 @@ function webGLStart()
       canvas.width  = size;
       canvas.height = size;
       gl.viewport(0,0,size,size);
-      Display();
+      //Display();
    }
 
    //
@@ -10999,8 +11045,9 @@ function webGLStart()
       x0 = ev.clientX;
       y0 = ev.clientY;
       //  Redisplay
-      Display();
+      //Display();
    }
+  
 }
 </script> 
 
